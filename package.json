@@ -1,0 +1,14 @@
+{
+  "name": "ra-de-kiem-tra-ai",
+  "version": "1.0.0",
+  "description": "Ứng dụng AI hỗ trợ giáo viên Việt Nam ra đề kiểm tra – Tiểu học, THCS, THPT.",
+  "license": "MIT",
+  "private": true,
+  "scripts": {
+    "start": "python3 -m http.server 8080",
+    "test": "node tests/smoke.js"
+  },
+  "devDependencies": {
+    "playwright": "^1.50.0"
+  }
+}
