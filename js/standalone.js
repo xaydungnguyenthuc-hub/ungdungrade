@@ -40,10 +40,23 @@
   const data=await res.json();
   return{text:(data.content||[]).filter(b=>b.type==='text').map(b=>b.text).join(''),truncated:data.stop_reason==='max_tokens'};
  }
+ function parseJson(t,trunc){
+  let s=String(t).trim().replace(/^```(?:json)?\s*/i,'').replace(/```\s*$/,'');
+  const a=s.search(/[\[{]/);
+  const bad=()=>({code:'invalid_json',message:'AI trả về JSON không hợp lệ'+(trunc?' (bị cắt do quá dài)':'')});
+  if(a<0)throw bad();
+  s=s.slice(a);
+  try{return JSON.parse(s)}catch(e){
+   const end=Math.max(s.lastIndexOf('}'),s.lastIndexOf(']'));
+   try{return JSON.parse(s.slice(0,end+1))}catch(e2){throw bad()}
+  }
+ }
+ const sample=async(prompt,o)=>({text:(await call(prompt,o)).text});
+ sample.json=async(prompt,o)=>{const r=await call(prompt,o);return parseJson(r.text,r.truncated)};
+ sample.limits=async()=>({maxPromptBytes:300000,images:{maxCount:3,maxInputBytes:4000000}});
 
- const sample={async complete(prompt,o){return call(prompt,o)}};
- const MIME={docx:'application/vnd.openxmlformats-officedocument.wordprocessingml.document',json:'application/json',html:'text/html',txt:'text/plain',png:'image/png'};
- const downloads={async save(filename,data){
+ const MIME={html:'text/html;charset=utf-8',json:'application/json',txt:'text/plain;charset=utf-8',csv:'text/csv;charset=utf-8',docx:'application/vnd.openxmlformats-officedocument.wordprocessingml.document',pdf:'application/pdf'};
+ const downloads={save:async({filename,data})=>{
   const ext=(filename.split('.').pop()||'').toLowerCase();
   const blob=data instanceof Blob?data:new Blob([data],{type:MIME[ext]||'application/octet-stream'});
   const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download=filename;
@@ -62,7 +75,7 @@
    <div id="aiTest"></div>`,
    actions:[
     {label:'Kiểm tra kết nối',onClick:async b=>{save(b);const t=$('#aiTest',b);t.innerHTML='<div class="alert info">Đang kiểm tra…</div>';
-      try{const r=await sample.complete('Chỉ trả lời đúng một từ: OK',{modelTier:'default'});t.innerHTML='<div class="alert ok">Kết nối thành công: '+esc((r.text||'').slice(0,40))+'</div>'}
+      try{const r=await sample('Chỉ trả lời đúng một từ: OK',{modelTier:'default'});t.innerHTML='<div class="alert ok">Kết nối thành công: '+esc((r.text||'').slice(0,40))+'</div>'}
       catch(e){t.innerHTML='<div class="alert err">'+esc(e.message||e.code||'Lỗi')+'</div>'}return false}},
     {label:'Xóa khóa',cls:'danger',onClick:()=>{setCfg(Object.assign(getCfg(),{key:''}));toast('Đã xóa khóa API.');return true}},
     {label:'Lưu',cls:'primary',onClick:b=>{save(b);toast('Đã lưu cài đặt AI.');return true}}]});
